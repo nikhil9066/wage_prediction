@@ -1,19 +1,12 @@
 # Load necessary libraries
-library(caret)
-library(car)
-library(readr)
-library(dplyr)
-library(ggplot2)
-library(GGally)
-library(gridExtra)
-library(grid)
-library(glmnet)
-library(Metrics)
-library(rpart)
-library(rpart.plot)
-library(pROC)
-library(tidyr)
-library(reshape2)
+load_libraries <- function() {
+  libraries <- c(
+    "caret", "car", "readr", "dplyr", "ggplot2", "GGally", "gridExtra",
+    "grid", "glmnet", "Metrics", "rpart", "rpart.plot", "pROC", "tidyr", "reshape2",
+    "randomForest", "xgboost", "adabag"
+  )
+  lapply(libraries, require, character.only = TRUE)
+}
 
 # Load and prepare the data
 load_and_prepare_data <- function(file_path) {
@@ -63,6 +56,23 @@ plot_data_visualizations <- function(data) {
   )
 }
 
+# Add more data visualizations
+add_data_visualizations <- function(data) {
+  scatter_age_education <- ggplot(data, aes(x = age, y = wage, color = education)) +
+    geom_point(alpha = 0.5) +
+    labs(title = "Wage vs Age by Education", x = "Age", y = "Wage")
+  
+  wage_density <- ggplot(data, aes(x = wage, fill = education)) +
+    geom_density(alpha = 0.5) +
+    labs(title = "Density Plot of Wage by Education", x = "Wage", y = "Density")
+  
+  education_barplot <- ggplot(data, aes(x = education, fill = education)) +
+    geom_bar() +
+    labs(title = "Education Level Distribution", x = "Education Level", y = "Count")
+  
+  grid.arrange(scatter_age_education, wage_density, education_barplot, nrow = 2)
+}
+
 # Function for Multilinear Regression
 fit_multilinear_regression <- function(data) {
   model <- lm(wage ~ ., data = data)
@@ -70,6 +80,36 @@ fit_multilinear_regression <- function(data) {
   par(mfrow = c(2, 2))
   plot(model)
   return(model)
+}
+
+# Function to implement Random Forests
+fit_random_forest <- function(data, formula) {
+  rf_model <- randomForest(formula, data = data, importance = TRUE)
+  print(rf_model)
+  varImpPlot(rf_model, main = "Variable Importance (Random Forest)")
+  plot(rf_model)
+  return(rf_model)
+}
+
+# Function to implement XGBoost
+fit_xgboost <- function(data, formula) {
+  x_data <- model.matrix(formula, data)[, -1]  # Remove intercept
+  y_data <- data[[as.character(formula[[2]])]]  # Extract response variable
+  
+  xgb_model <- xgboost(
+    data = as.matrix(x_data), label = y_data, max.depth = 3,
+    eta = 0.1, nrounds = 100, objective = "reg:squarederror", verbose = 0
+  )
+  plot(xgb_model)
+  print(xgb_model)
+  return(xgb_model)
+}
+
+# Function to implement AdaBoost
+fit_adaboost <- function(data, formula) {
+  ada_model <- boosting(formula, data = data)
+  print(summary(ada_model))
+  return(ada_model)
 }
 
 # Function for Ridge Regression
@@ -163,11 +203,23 @@ fit_and_plot_regression_tree <- function(data, formula) {
   return(tree_model)
 }
 
+# Main Script
+load_libraries()
+
 # Main script execution
 file_path <- "/Users/nikhilprao/Documents/Data/Wage.csv"
 wage_data <- load_and_prepare_data(file_path)
+
+# Visualizations
 plot_data_visualizations(wage_data)
+add_data_visualizations(wage_data)
+
+# Fit Models
 fit_multilinear_regression(wage_data)
+rf_model <- fit_random_forest(wage_data, wage ~ age + education + year)
+xgb_model <- fit_xgboost(wage_data, wage ~ age + education + year)
+ada_model <- fit_adaboost(wage_data, wage ~ age + education + year)
+
 linear_model <- fit_multilinear_regression(wage_data)
 ridge_coefficients <- fit_ridge_regression(wage_data)
 print(ridge_coefficients)
