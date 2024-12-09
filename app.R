@@ -1,19 +1,19 @@
-# Load necessary libraries
 load_libraries <- function() {
   libraries <- c(
     "caret", "car", "readr", "dplyr", "ggplot2", "GGally", "gridExtra",
     "grid", "glmnet", "Metrics", "rpart", "rpart.plot", "pROC", "tidyr", "reshape2",
-    "randomForest", "xgboost", "adabag"
+    "randomForest","DiagrammeR", "xgboost", "adabag"
   )
-  lapply(libraries, require, character.only = TRUE)
+  lapply(libraries, function(lib) {
+    suppressMessages(suppressWarnings(require(lib, character.only = TRUE)))
+  })
 }
 
-# Load and prepare the data
 load_and_prepare_data <- function(file_path) {
   wage_data <- read_csv(file_path)
   wage_data <- wage_data %>%
-    mutate_if(is.character, as.factor) %>%
-    select_if(~!is.factor(.) || length(levels(.)) > 1)
+    mutate(across(where(is.character), as.factor)) %>%
+    select(where(~ !is.factor(.) || length(levels(.)) > 1))
   return(wage_data)
 }
 
@@ -100,16 +100,9 @@ fit_xgboost <- function(data, formula) {
     data = as.matrix(x_data), label = y_data, max.depth = 3,
     eta = 0.1, nrounds = 100, objective = "reg:squarederror", verbose = 0
   )
-  plot(xgb_model)
+  #plot(xgb_model)
   print(xgb_model)
   return(xgb_model)
-}
-
-# Function to implement AdaBoost
-fit_adaboost <- function(data, formula) {
-  ada_model <- boosting(formula, data = data)
-  print(summary(ada_model))
-  return(ada_model)
 }
 
 # Function for Ridge Regression
@@ -150,22 +143,30 @@ perform_cross_validation <- function(data, alpha) {
   return(best_lambda)
 }
 
-# Function to compare model performances
-compare_model_performance <- function(data, lasso_results, ridge_results) {
-  x <- model.matrix(wage ~ . - 1, data = data)  # Create model matrix for predictions
-  actuals <- data$wage  # Actual wage values for comparison
+# Function to compare model metrics
+compare_model_metrics <- function(actuals, predictions_list, model_names) {
+  metrics <- data.frame(
+    Model = model_names,
+    RMSE = sapply(predictions_list, function(pred) rmse(actuals, pred)),
+    MAE = sapply(predictions_list, function(pred) mae(actuals, pred))
+  )
   
-  # Predictions using the best lambda found from CV
-  lasso_pred <- predict(lasso_results$model, newx = x, s = lasso_results$model$lambda.min)
-  ridge_pred <- predict(ridge_results$model, newx = x, s = ridge_results$model$lambda.min)
-  
-  # Calculate RMSE for each model
-  lasso_rmse <- rmse(actuals, lasso_pred)
-  ridge_rmse <- rmse(actuals, ridge_pred)
-  
-  # Output results
-  cat("RMSE for Lasso: ", lasso_rmse, "\n")
-  cat("RMSE for Ridge: ", ridge_rmse, "\n")
+  print(metrics)
+  ggplot(metrics, aes(x = Model)) +
+    geom_bar(aes(y = RMSE, fill = "RMSE"), stat = "identity", position = "dodge") +
+    geom_bar(aes(y = MAE, fill = "MAE"), stat = "identity", position = "dodge") +
+    labs(title = "Model Performance Comparison", y = "Metric Value") +
+    scale_fill_manual(values = c("RMSE" = "blue", "MAE" = "red"))
+}
+
+# Function to generate summary report
+generate_summary_report <- function(metrics, filename = "model_summary_report.txt") {
+  sink(filename)
+  cat("Summary Report of Model Performance\n")
+  cat("-----------------------------------\n")
+  print(metrics)
+  sink()
+  cat("Summary report saved to ", filename, "\n")
 }
 
 # Function to create and visualize a Regression Tree
@@ -185,137 +186,45 @@ fit_and_plot_regression_tree <- function(data, formula) {
 # Main Script
 load_libraries()
 
-# Main script execution
 file_path <- "./Wage.csv"
 wage_data <- load_and_prepare_data(file_path)
 
+str(wage_data)
+summary(wage_data)
+# Check for missing values
+sum(is.na(wage_data))
+wage_data <- na.omit(wage_data)  # Remove rows with missing values
+
 # Visualizations
-plot_data_visualizations(wage_data)
 add_data_visualizations(wage_data)
+plot_data_visualizations(wage_data)
 
 # Fit Models
 fit_multilinear_regression(wage_data)
 rf_model <- fit_random_forest(wage_data, wage ~ age + education + year)
 xgb_model <- fit_xgboost(wage_data, wage ~ age + education + year)
-ada_model <- fit_adaboost(wage_data, wage ~ age + education + year)
 
-linear_model <- fit_multilinear_regression(wage_data)
-ridge_coefficients <- fit_ridge_regression(wage_data)
-print(ridge_coefficients)
+xgb.plot.tree(model = xgb_model, trees = 0, show_node_id = TRUE)
+dev.off()
 
-# Fit models
-lasso_results <- fit_lasso_regression(wage_data)
-ridge_results <- fit_ridge_regression(wage_data)
+par(mar = c(5, 5, 4, 2))
+importance_matrix <- xgb.importance(model = xgb_model)
+xgb.plot.importance(importance_matrix, main = "Feature Importance")
+print(importance_matrix)
 
-# Compare models
-#compare_model_performance(wage_data, lasso_results, ridge_results)
-set.seed(123) # For reproducibility
-# Assuming wage_data is already loaded and prepared
-tree_model <- fit_and_plot_regression_tree(wage_data, wage ~ age + education)
+# Regularization Cross-Validation
+best_lambda_lasso <- perform_cross_validation(wage_data, alpha = 1)
+best_lambda_ridge <- perform_cross_validation(wage_data, alpha = 0)
 
-# and 'education' is already a factor with levels appropriately set as in your output:
-formula <- wage ~ education + age
-tree_model <- rpart(formula, data = wage_data, method = "anova")
-
-# Visualize the tree with detailed node information
-rpart.plot(tree_model, main = "Regression Tree for Wage Prediction", 
-           extra = 101,  # Show the mean and percentage of observations in nodes
-           under = TRUE, faclen = 0)
-
-# Print the model summary to see the text description of each node
-print(tree_model)
-
-calculate_roc_auc <- function(actual, predicted) {
-  library(pROC)
-  roc_response <- roc(actual, predicted)
-  plot(roc_response, main="ROC Curve")
-  auc(roc_response)
-}
-
-compare_model_performance <- function(data, lasso_results, ridge_results, linear_model, tree_model) {
-  x <- model.matrix(wage ~ . - 1, data = data)
-  actuals <- data$wage
-  
-  # Get predictions for all models
-  lasso_pred <- predict(lasso_results$model, newx = x, s = lasso_results$model$lambda.min)
-  ridge_pred <- predict(ridge_results$model, newx = x, s = ridge_results$model$lambda.min)
-  linear_pred <- predict(linear_model, newx = x)
-  tree_pred <- predict(tree_model, newx = data)
-  
-  # Calculate RMSE and MAE for each model
-  metrics <- rbind(
-    Lasso = c(RMSE = rmse(actuals, lasso_pred), MAE = mae(actuals, lasso_pred)),
-    Ridge = c(RMSE = rmse(actuals, ridge_pred), MAE = mae(actuals, ridge_pred)),
-    Linear = c(RMSE = rmse(actuals, linear_pred), MAE = mae(actuals, linear_pred)),
-    Tree = c(RMSE = rmse(actuals, tree_pred), MAE = mae(actuals, tree_pred))
-  )
-  
-  print(metrics)
-}
-
-metrics <- compare_model_performance(wage_data, lasso_results, ridge_results, linear_model, tree_model)
-
-# Convert the matrix 'metrics' to a long format data frame suitable for ggplot2
-metrics_long <- melt(as.data.frame(metrics), variable.name = "Metric", value.name = "Value")
-metrics_long$Model <- rep(c("Lasso", "Ridge", "Linear", "Tree"), each = 2)  # Repeating model names
-
-# Define the plotting function
-plot_model_comparison <- function(metrics_df) {
-  ggplot(metrics_df, aes(x = Model, y = Value, fill = Metric)) +
-    geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
-    theme_minimal() +
-    labs(title = "Model Performance Comparison", y = "Metric Value") +
-    scale_fill_brewer(palette = "Pastel1") +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    geom_text(aes(label = round(Value, 2)), position = position_dodge(width = 0.8), vjust = -0.5)
-}
-
-# Plot the metrics
-plot_model_comparison(metrics_long)
-
-# New observation data
-new_data <- data.frame(
-  year = 2003,
-  age = 28,
-  maritl = "1. Never Married",
-  race = "3. Asian",
-  education = "4. College Grad",
-  region = "2. Middle Atlantic",
-  jobclass = "2. Information",
-  health = "2. >=Very Good",
-  health_ins = "1. Yes",
-  logwage = 5  # logwage is provided, if this should be predicted remove it from here
+# Model Comparison
+predictions_list <- list(
+  predict(rf_model, wage_data),
+  predict(xgb_model, model.matrix(wage ~ ., data = wage_data)[, -1]),
+  predict(ada_model, newdata = wage_data)$class  # Ensure compatibility
 )
 
-# Convert categorical variables to factors with levels matching the original training data
-new_data$maritl <- factor(new_data$maritl, levels = levels(wage_data$maritl))
-new_data$race <- factor(new_data$race, levels = levels(wage_data$race))
-new_data$education <- factor(new_data$education, levels = levels(wage_data$education))
-new_data$region <- factor(new_data$region, levels = levels(wage_data$region))
-new_data$jobclass <- factor(new_data$jobclass, levels = levels(wage_data$jobclass))
-new_data$health <- factor(new_data$health, levels = levels(wage_data$health))
-new_data$health_ins <- factor(new_data$health_ins, levels = levels(wage_data$health_ins))
+model_names <- c("Random Forest", "XGBoost", "AdaBoost")
+metrics <- compare_model_metrics(actuals, predictions_list, model_names)
 
-# Predict the wage using the chosen model (assuming 'linear_model' is your fitted linear regression model)
-predicted_wage <- predict(linear_model, newdata = new_data)
-
-# Compare the predicted wage to the original wage
-original_wage <- 148.413159102577  # The original wage value to compare against
-prediction_error <- abs(predicted_wage - original_wage)
-
-# Output comparison
-cat("Predicted Wage: ", predicted_wage, "\n")
-cat("Original Wage: ", original_wage, "\n")
-cat("Prediction Error: ", prediction_error, "\n")
-
-# Predict the wage using the tree model
-predicted_wage_tree <- predict(tree_model, newdata = new_data)
-
-# Compare the predicted wage to the original wage
-original_wage <- 148.413159102577  # The original wage value to compare against
-prediction_error_tree <- abs(predicted_wage_tree - original_wage)
-
-# Output comparison
-cat("Predicted Wage from Tree Model: ", predicted_wage_tree, "\n")
-cat("Original Wage: ", original_wage, "\n")
-cat("Prediction Error: ", prediction_error_tree, "\n")
+# Generate Summary Report
+generate_summary_report(metrics)
