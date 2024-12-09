@@ -138,37 +138,16 @@ fit_ridge_regression <- function(data) {
   return(coef(ridge_model, s = best_lambda))
 }
 
-# Function for Lasso Regression (L1 Regularization)
-fit_lasso_regression <- function(data) {
+# Function to compute cross-validation for Lasso and Ridge
+perform_cross_validation <- function(data, alpha) {
   x <- model.matrix(wage ~ . - 1, data = data)
   y <- data$wage
-  
-  # Fit Lasso model
-  lasso_model <- glmnet(x, y, alpha = 1)  # alpha = 1 for Lasso
-  cv_lasso <- cv.glmnet(x, y, alpha = 1)
-  plot(cv_lasso)
-  title("Cross-Validation for Selecting Lambda in Lasso")
-  
-  best_lambda <- cv_lasso$lambda.min
-  cat("Best lambda for Lasso: ", best_lambda, "\n")
-  
-  return(list(model = lasso_model, coefficients = coef(lasso_model, s = best_lambda)))
-}
-
-# Function for Ridge Regression (L2 Regularization)
-fit_ridge_regression <- function(data) {
-  x <- model.matrix(wage ~ . - 1, data = data)
-  y <- data$wage
-  
-  ridge_model <- glmnet(x, y, alpha = 0)  # alpha = 0 for Ridge
-  cv_ridge <- cv.glmnet(x, y, alpha = 0)
-  plot(cv_ridge)
-  title("Cross-Validation for Selecting Lambda in Ridge")
-  
-  best_lambda <- cv_ridge$lambda.min
-  cat("Best lambda for Ridge: ", best_lambda, "\n")
-  
-  return(list(model = ridge_model, coefficients = coef(ridge_model, s = best_lambda)))
+  cv_model <- cv.glmnet(x, y, alpha = alpha)
+  plot(cv_model)
+  title(ifelse(alpha == 1, "Lasso Cross-Validation", "Ridge Cross-Validation"))
+  best_lambda <- cv_model$lambda.min
+  cat("Best Lambda: ", best_lambda, "\n")
+  return(best_lambda)
 }
 
 # Function to compare model performances
@@ -207,7 +186,7 @@ fit_and_plot_regression_tree <- function(data, formula) {
 load_libraries()
 
 # Main script execution
-file_path <- "/Users/nikhilprao/Documents/Data/Wage.csv"
+file_path <- "./Wage.csv"
 wage_data <- load_and_prepare_data(file_path)
 
 # Visualizations
