@@ -167,3 +167,36 @@ fit_and_plot_regression_tree <- function(data, formula) {
 file_path <- "/Users/nikhilprao/Documents/Data/Wage.csv"
 wage_data <- load_and_prepare_data(file_path)
 plot_data_visualizations(wage_data)
+fit_multilinear_regression(wage_data)
+linear_model <- fit_multilinear_regression(wage_data)
+ridge_coefficients <- fit_ridge_regression(wage_data)
+print(ridge_coefficients)
+
+# Fit models
+lasso_results <- fit_lasso_regression(wage_data)
+ridge_results <- fit_ridge_regression(wage_data)
+
+# Compare models
+#compare_model_performance(wage_data, lasso_results, ridge_results)
+set.seed(123) # For reproducibility
+# Assuming wage_data is already loaded and prepared
+tree_model <- fit_and_plot_regression_tree(wage_data, wage ~ age + education)
+
+# and 'education' is already a factor with levels appropriately set as in your output:
+formula <- wage ~ education + age
+tree_model <- rpart(formula, data = wage_data, method = "anova")
+
+# Visualize the tree with detailed node information
+rpart.plot(tree_model, main = "Regression Tree for Wage Prediction", 
+           extra = 101,  # Show the mean and percentage of observations in nodes
+           under = TRUE, faclen = 0)
+
+# Print the model summary to see the text description of each node
+print(tree_model)
+
+calculate_roc_auc <- function(actual, predicted) {
+  library(pROC)
+  roc_response <- roc(actual, predicted)
+  plot(roc_response, main="ROC Curve")
+  auc(roc_response)
+}
