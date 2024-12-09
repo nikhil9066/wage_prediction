@@ -222,7 +222,6 @@ compare_model_performance <- function(data, lasso_results, ridge_results, linear
   print(metrics)
 }
 
-
 metrics <- compare_model_performance(wage_data, lasso_results, ridge_results, linear_model, tree_model)
 
 # Convert the matrix 'metrics' to a long format data frame suitable for ggplot2
@@ -242,7 +241,6 @@ plot_model_comparison <- function(metrics_df) {
 
 # Plot the metrics
 plot_model_comparison(metrics_long)
-
 
 # New observation data
 new_data <- data.frame(
@@ -278,8 +276,6 @@ prediction_error <- abs(predicted_wage - original_wage)
 cat("Predicted Wage: ", predicted_wage, "\n")
 cat("Original Wage: ", original_wage, "\n")
 cat("Prediction Error: ", prediction_error, "\n")
-
-
 
 # Predict the wage using the tree model
 predicted_wage_tree <- predict(tree_model, newdata = new_data)
