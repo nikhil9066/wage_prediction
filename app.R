@@ -200,3 +200,95 @@ calculate_roc_auc <- function(actual, predicted) {
   plot(roc_response, main="ROC Curve")
   auc(roc_response)
 }
+
+compare_model_performance <- function(data, lasso_results, ridge_results, linear_model, tree_model) {
+  x <- model.matrix(wage ~ . - 1, data = data)
+  actuals <- data$wage
+  
+  # Get predictions for all models
+  lasso_pred <- predict(lasso_results$model, newx = x, s = lasso_results$model$lambda.min)
+  ridge_pred <- predict(ridge_results$model, newx = x, s = ridge_results$model$lambda.min)
+  linear_pred <- predict(linear_model, newx = x)
+  tree_pred <- predict(tree_model, newx = data)
+  
+  # Calculate RMSE and MAE for each model
+  metrics <- rbind(
+    Lasso = c(RMSE = rmse(actuals, lasso_pred), MAE = mae(actuals, lasso_pred)),
+    Ridge = c(RMSE = rmse(actuals, ridge_pred), MAE = mae(actuals, ridge_pred)),
+    Linear = c(RMSE = rmse(actuals, linear_pred), MAE = mae(actuals, linear_pred)),
+    Tree = c(RMSE = rmse(actuals, tree_pred), MAE = mae(actuals, tree_pred))
+  )
+  
+  print(metrics)
+}
+
+
+metrics <- compare_model_performance(wage_data, lasso_results, ridge_results, linear_model, tree_model)
+
+# Convert the matrix 'metrics' to a long format data frame suitable for ggplot2
+metrics_long <- melt(as.data.frame(metrics), variable.name = "Metric", value.name = "Value")
+metrics_long$Model <- rep(c("Lasso", "Ridge", "Linear", "Tree"), each = 2)  # Repeating model names
+
+# Define the plotting function
+plot_model_comparison <- function(metrics_df) {
+  ggplot(metrics_df, aes(x = Model, y = Value, fill = Metric)) +
+    geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
+    theme_minimal() +
+    labs(title = "Model Performance Comparison", y = "Metric Value") +
+    scale_fill_brewer(palette = "Pastel1") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    geom_text(aes(label = round(Value, 2)), position = position_dodge(width = 0.8), vjust = -0.5)
+}
+
+# Plot the metrics
+plot_model_comparison(metrics_long)
+
+
+# New observation data
+new_data <- data.frame(
+  year = 2003,
+  age = 28,
+  maritl = "1. Never Married",
+  race = "3. Asian",
+  education = "4. College Grad",
+  region = "2. Middle Atlantic",
+  jobclass = "2. Information",
+  health = "2. >=Very Good",
+  health_ins = "1. Yes",
+  logwage = 5  # logwage is provided, if this should be predicted remove it from here
+)
+
+# Convert categorical variables to factors with levels matching the original training data
+new_data$maritl <- factor(new_data$maritl, levels = levels(wage_data$maritl))
+new_data$race <- factor(new_data$race, levels = levels(wage_data$race))
+new_data$education <- factor(new_data$education, levels = levels(wage_data$education))
+new_data$region <- factor(new_data$region, levels = levels(wage_data$region))
+new_data$jobclass <- factor(new_data$jobclass, levels = levels(wage_data$jobclass))
+new_data$health <- factor(new_data$health, levels = levels(wage_data$health))
+new_data$health_ins <- factor(new_data$health_ins, levels = levels(wage_data$health_ins))
+
+# Predict the wage using the chosen model (assuming 'linear_model' is your fitted linear regression model)
+predicted_wage <- predict(linear_model, newdata = new_data)
+
+# Compare the predicted wage to the original wage
+original_wage <- 148.413159102577  # The original wage value to compare against
+prediction_error <- abs(predicted_wage - original_wage)
+
+# Output comparison
+cat("Predicted Wage: ", predicted_wage, "\n")
+cat("Original Wage: ", original_wage, "\n")
+cat("Prediction Error: ", prediction_error, "\n")
+
+
+
+# Predict the wage using the tree model
+predicted_wage_tree <- predict(tree_model, newdata = new_data)
+
+# Compare the predicted wage to the original wage
+original_wage <- 148.413159102577  # The original wage value to compare against
+prediction_error_tree <- abs(predicted_wage_tree - original_wage)
+
+# Output comparison
+cat("Predicted Wage from Tree Model: ", predicted_wage_tree, "\n")
+cat("Original Wage: ", original_wage, "\n")
+cat("Prediction Error: ", prediction_error_tree, "\n")
