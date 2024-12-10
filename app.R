@@ -219,13 +219,70 @@ best_lambda_ridge <- perform_cross_validation(wage_data, alpha = 0)
 
 # Model Comparison
 actuals <- wage_data$wage
-predictions_list <- list(
-  predict(rf_model, wage_data),
-  predict(xgb_model, model.matrix(wage ~ ., data = wage_data)[, -1]),
-  predict(fit_multilinear_regression(wage_data), newdata = wage_data)
-)
-model_names <- c("Linear Regression","Random Forest", "XGBoost")  # Update model names
+
+rf_predictions <- predict(rf_model, wage_data)
+x_data <- model.matrix(wage ~ age + education + year, data = wage_data)[, -1]  # Remove intercept column
+xgb_predictions <- predict(xgb_model, newdata = as.matrix(x_data))
+lm_predictions <- predict(fit_multilinear_regression(wage_data), newdata = wage_data)
+
+predictions_list <- list(rf_predictions, xgb_predictions, lm_predictions)
+model_names <- c("Random Forest", "XGBoost", "Linear Regression")
 metrics <- compare_model_metrics(actuals, predictions_list, model_names)
 
 # Generate Summary Report
 generate_summary_report(metrics)
+
+
+## Tuning of RF
+
+# Corrected Random Forest Hyperparameter Tuning using caret
+tune_random_forest <- function(data, formula) {
+  # Define the training control for cross-validation
+  train_control <- trainControl(method = "cv", number = 5)  # 5-fold cross-validation
+  
+  # Define the hyperparameters to tune (mtry) - number of variables to try at each split
+  tune_grid <- expand.grid(mtry = c(2, 3, 4))  # Tuning 'mtry' parameter
+  
+  # Train the random forest model with tuning
+  rf_tune_model <- train(formula, data = data, method = "rf",
+                         trControl = train_control, tuneGrid = tune_grid,
+                         importance = TRUE)
+  
+  print(rf_tune_model)  # Print model performance results
+  varImpPlot(rf_tune_model$finalModel, main = "Variable Importance (Tuned Random Forest)")
+  
+  return(rf_tune_model$finalModel)
+}
+
+# Example usage:
+rf_tuned_model <- tune_random_forest(wage_data, wage ~ age + education + year)
+
+
+## XGB tuning
+# Function to tune hyperparameters for XGBoost
+tune_xgboost <- function(data, formula) {
+  # Define the training control for cross-validation
+  train_control <- trainControl(method = "cv", number = 5)  # 5-fold cross-validation
+  
+  # Define the hyperparameter grid to tune for XGBoost
+  tune_grid <- expand.grid(
+    nrounds = c(50, 100, 200),               # Number of boosting rounds
+    max_depth = c(3, 6, 9),                   # Maximum tree depth
+    eta = c(0.01, 0.1, 0.2),                 # Learning rate
+    gamma = c(0, 1),                          # Minimum loss reduction
+    colsample_bytree = c(0.5, 0.7, 1),       # Fraction of features to sample per tree
+    min_child_weight = c(1, 5, 10),           # Minimum sum of instance weight in a child
+    subsample = c(0.5, 0.7, 1)                # Subsampling ratio for training
+  )
+  
+  # Train the XGBoost model with tuning
+  xgb_tune_model <- train(formula, data = data, method = "xgbTree",
+                          trControl = train_control, tuneGrid = tune_grid,
+                          verbose = 0)  # Silent mode during training
+  
+  print(xgb_tune_model)  # Print model performance results
+  return(xgb_tune_model$finalModel)  # Return the best-tuned model
+}
+
+# Example usage:
+xgb_tuned_model <- tune_xgboost(wage_data, wage ~ age + education + year)
