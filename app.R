@@ -2,7 +2,7 @@ load_libraries <- function() {
   libraries <- c(
     "caret", "car", "readr", "dplyr", "ggplot2", "GGally", "gridExtra",
     "grid", "glmnet", "Metrics", "rpart", "rpart.plot", "pROC", "tidyr", "reshape2",
-    "randomForest","DiagrammeR", "xgboost", "adabag"
+    "randomForest", "DiagrammeR", "xgboost"  # Removed adabag if no longer needed
   )
   lapply(libraries, function(lib) {
     suppressMessages(suppressWarnings(require(lib, character.only = TRUE)))
@@ -193,7 +193,8 @@ str(wage_data)
 summary(wage_data)
 # Check for missing values
 sum(is.na(wage_data))
-wage_data <- na.omit(wage_data)  # Remove rows with missing values
+# Remove rows with missing values
+wage_data <- na.omit(wage_data)
 
 # Visualizations
 add_data_visualizations(wage_data)
@@ -217,13 +218,13 @@ best_lambda_lasso <- perform_cross_validation(wage_data, alpha = 1)
 best_lambda_ridge <- perform_cross_validation(wage_data, alpha = 0)
 
 # Model Comparison
+actuals <- wage_data$wage
 predictions_list <- list(
   predict(rf_model, wage_data),
   predict(xgb_model, model.matrix(wage ~ ., data = wage_data)[, -1]),
-  predict(ada_model, newdata = wage_data)$class  # Ensure compatibility
+  predict(fit_multilinear_regression(wage_data), newdata = wage_data)
 )
-
-model_names <- c("Random Forest", "XGBoost", "AdaBoost")
+model_names <- c("Linear Regression","Random Forest", "XGBoost")  # Update model names
 metrics <- compare_model_metrics(actuals, predictions_list, model_names)
 
 # Generate Summary Report
