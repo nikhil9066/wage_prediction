@@ -2,7 +2,7 @@ load_libraries <- function() {
   libraries <- c(
     "caret", "car", "readr", "dplyr", "ggplot2", "GGally", "gridExtra",
     "grid", "glmnet", "Metrics", "rpart", "rpart.plot", "pROC", "tidyr", "reshape2",
-    "randomForest", "DiagrammeR", "xgboost"  # Removed adabag if no longer needed
+    "randomForest", "DiagrammeR", "xgboost"
   )
   lapply(libraries, function(lib) {
     suppressMessages(suppressWarnings(require(lib, character.only = TRUE)))
@@ -150,13 +150,7 @@ compare_model_metrics <- function(actuals, predictions_list, model_names) {
     RMSE = sapply(predictions_list, function(pred) rmse(actuals, pred)),
     MAE = sapply(predictions_list, function(pred) mae(actuals, pred))
   )
-  
   print(metrics)
-  ggplot(metrics, aes(x = Model)) +
-    geom_bar(aes(y = RMSE, fill = "RMSE"), stat = "identity", position = "dodge") +
-    geom_bar(aes(y = MAE, fill = "MAE"), stat = "identity", position = "dodge") +
-    labs(title = "Model Performance Comparison", y = "Metric Value") +
-    scale_fill_manual(values = c("RMSE" = "blue", "MAE" = "red"))
 }
 
 # Function to generate summary report
@@ -217,24 +211,7 @@ print(importance_matrix)
 best_lambda_lasso <- perform_cross_validation(wage_data, alpha = 1)
 best_lambda_ridge <- perform_cross_validation(wage_data, alpha = 0)
 
-# Model Comparison
-actuals <- wage_data$wage
-
-rf_predictions <- predict(rf_model, wage_data)
-x_data <- model.matrix(wage ~ age + education + year, data = wage_data)[, -1]  # Remove intercept column
-xgb_predictions <- predict(xgb_model, newdata = as.matrix(x_data))
-lm_predictions <- predict(fit_multilinear_regression(wage_data), newdata = wage_data)
-
-predictions_list <- list(rf_predictions, xgb_predictions, lm_predictions)
-model_names <- c("Random Forest", "XGBoost", "Linear Regression")
-metrics <- compare_model_metrics(actuals, predictions_list, model_names)
-
-# Generate Summary Report
-generate_summary_report(metrics)
-
-
 ## Tuning of RF
-
 # Corrected Random Forest Hyperparameter Tuning using caret
 tune_random_forest <- function(data, formula) {
   # Define the training control for cross-validation
@@ -256,7 +233,6 @@ tune_random_forest <- function(data, formula) {
 
 # Example usage:
 rf_tuned_model <- tune_random_forest(wage_data, wage ~ age + education + year)
-
 
 ## XGB tuning
 # Function to tune hyperparameters for XGBoost
@@ -284,5 +260,46 @@ tune_xgboost <- function(data, formula) {
   return(xgb_tune_model$finalModel)  # Return the best-tuned model
 }
 
-# Example usage:
 xgb_tuned_model <- tune_xgboost(wage_data, wage ~ age + education + year)
+
+# Model Comparison
+actuals <- wage_data$wage
+
+rf_predictions <- predict(rf_model, wage_data)
+x_data <- model.matrix(wage ~ age + education + year, data = wage_data)[, -1]
+xgb_predictions <- predict(xgb_model, newdata = as.matrix(x_data))
+lm_predictions <- predict(fit_multilinear_regression(wage_data), newdata = wage_data)
+
+# Create the model matrix for wage_data (excluding the intercept column)
+x_data <- model.matrix(wage ~ age + education + year, data = wage_data)[, -1]
+# Ensure that the new data for prediction matches the training data structure
+rf_tuned_predictions <- predict(rf_tuned_model, newdata = x_data)
+xgb_tuned_predictions <- predict(xgb_tuned_model, newdata = as.matrix(x_data))
+
+
+predictions_list <- list(rf_predictions, xgb_predictions, lm_predictions, rf_tuned_predictions, xgb_tuned_predictions)
+model_names <- c("Random Forest", "XGBoost", "Linear Regression", "Tuned Random Forest", "Tuned XGBoost")
+metrics <- compare_model_metrics(actuals, predictions_list, model_names)
+
+# Generate Summary Report
+generate_summary_report(metrics)
+
+# Data provided
+metrics <- data.frame(
+  Model = c("Random Forest", "XGBoost", "Linear Regression", "Tuned Random Forest", "Tuned XGBoost"),
+  RMSE = c(33.53792, 34.08860, 12.57193, 34.57570, 34.47375),
+  MAE = c(22.789318, 23.312429, 7.030531, 23.623297, 23.511137)
+)
+
+# Reshape the data to long format for plotting
+metrics_long <- metrics %>%
+  pivot_longer(cols = c(RMSE, MAE), names_to = "Metric", values_to = "Value")
+
+# Create the line graph
+ggplot(metrics_long, aes(x = Model, y = Value, color = Metric, group = Metric)) +
+  geom_line(size = 1) +  # Line for each metric
+  geom_point(size = 3) + # Points for each model
+  labs(title = "Model Performance Comparison", y = "Metric Value", x = "Model") +
+  scale_color_manual(values = c("RMSE" = "blue", "MAE" = "red")) +
+  theme_minimal()
+
