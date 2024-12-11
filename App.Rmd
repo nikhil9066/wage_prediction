@@ -1,3 +1,41 @@
+---
+title: "Wage Prediction Analysis"
+author: "Nikhil Prema Chandra Rao"
+date: "2024-12-11"
+output: html_document
+---
+
+## Introduction
+
+This project performs wage prediction analysis using various machine learning models on a wage dataset. The goal is to compare the performance of multiple models including Linear Regression, Random Forest, and XGBoost. Hyperparameter tuning and regularization techniques like Lasso and Ridge Regression are also explored.
+
+In this analysis, we will explore a dataset containing wage information. The goal is to understand the relationship between various factors, such as age, education, and year, and the wage of individuals. By analyzing this data, we aim to build a predictive model that can estimate an individual's wage based on these factors.
+
+### About the Data
+
+The data set, `Wage.csv`, consists of information on individuals' wages along with other attributes that might influence their income. The key variables in this data set include:
+
+-   **age**: The age of the individual.
+-   **education**: The highest level of education attained by the individual (e.g., High School, Bachelor's Degree, Master's Degree).
+-   **year**: The year when the wage was recorded.
+-   **wage**: The wage of the individual, which is our target variable.
+
+This data set allows us to explore the impact of age, education, and the year on an individual's wage. We will perform exploratory data analysis (EDA) to understand the relationships between these variables, followed by fitting a linear regression model to predict wages based on these features.
+
+### Objective of the Analysis
+
+The main objectives of this analysis are as follows:
+
+1.  **Data Pre-processing**: Load and clean the data set to ensure that it is ready for analysis.
+2.  **Exploratory Data Analysis (EDA)**: Visualize and summarize the data to uncover patterns and trends.
+3.  **Modeling**: Fit a linear regression model to predict wages based on age, education, and year.
+4.  **Model Evaluation**: Assess the performance of the regression model and interpret the results.
+
+By the end of this analysis, we aim to understand how different factors contribute to wage variations and use this knowledge to make predictions about an individual's wage.
+
+### load_libraries
+This function loads a list of necessary tools (called libraries) that help perform various tasks like reading data, creating plots, and building machine learning models.
+```{r load-libraries, message=FALSE, warning=FALSE}
 load_libraries <- function() {
   libraries <- c(
     "caret", "car", "readr", "dplyr", "ggplot2", "GGally", "gridExtra",
@@ -8,7 +46,11 @@ load_libraries <- function() {
     suppressMessages(suppressWarnings(require(lib, character.only = TRUE)))
   })
 }
+```
 
+### load_and_prepare_data
+This function reads a file containing wage data and prepares it by converting text into categories and cleaning up unnecessary columns. It ensures that the data is ready for analysis.
+```{r}
 load_and_prepare_data <- function(file_path) {
   wage_data <- read_csv(file_path)
   wage_data <- wage_data %>%
@@ -16,7 +58,11 @@ load_and_prepare_data <- function(file_path) {
     select(where(~ !is.factor(.) || length(levels(.)) > 1))
   return(wage_data)
 }
+```
 
+### plot_data_visualizations
+This function creates several visual charts to help understand the data better. These include a histogram of wages, a boxplot to show how wages vary by education level, a scatterplot of wage versus age, and a correlation plot showing relationships between different variables.
+```{r}
 # Generate and plot visualizations
 plot_data_visualizations <- function(data) {
   # Wage Histogram
@@ -68,9 +114,11 @@ plot_data_visualizations <- function(data) {
     top = textGrob("Data Visualizations", gp = gpar(fontsize = 18, fontface = "bold"))
   )
 }
+```
 
-
-# Add more data visualizations
+### add_data_visualizations
+This function creates additional charts like scatter plots, density plots, and bar charts to visualize the data in different ways, making it easier to spot trends.
+```{r}
 add_data_visualizations <- function(data) {
   scatter_age_education <- ggplot(data, aes(x = age, y = wage, color = education)) +
     geom_point(alpha = 0.5) +
@@ -86,7 +134,11 @@ add_data_visualizations <- function(data) {
   
   grid.arrange(scatter_age_education, wage_density, education_barplot, nrow = 2)
 }
+```
 
+### fit_multilinear_regression
+This function creates a mathematical model (called a regression) that predicts wages based on other factors. It shows how different factors affect the wage and gives insights into the importance of each.
+```{r}
 # Function for Multilinear Regression
 fit_multilinear_regression <- function(data) {
   model <- lm(wage ~ ., data = data)
@@ -95,7 +147,11 @@ fit_multilinear_regression <- function(data) {
   plot(model)
   return(model)
 }
+```
 
+### fit_random_forest
+This function builds a machine learning model called Random Forest, which can predict wages by considering many factors. It also shows which factors are the most important for predictions.
+```{r}
 # Function to implement Random Forests
 fit_random_forest <- function(data, formula) {
   rf_model <- randomForest(formula, data = data, importance = TRUE)
@@ -104,7 +160,11 @@ fit_random_forest <- function(data, formula) {
   plot(rf_model)
   return(rf_model)
 }
+```
 
+### fit_xgboost
+This function uses another machine learning method, XGBoost, to predict wages. It’s known for its efficiency and accuracy in handling complex data.
+```{r}
 # Function to implement XGBoost
 fit_xgboost <- function(data, formula) {
   x_data <- model.matrix(formula, data)[, -1]  # Remove intercept
@@ -118,7 +178,11 @@ fit_xgboost <- function(data, formula) {
   print(xgb_model)
   return(xgb_model)
 }
+```
 
+### fit_ridge_regression
+This function builds a model similar to linear regression but with a twist. It reduces the impact of less important factors to make the model more stable. It also selects the best settings for the model to improve predictions.
+```{r}
 # Function for Ridge Regression
 fit_ridge_regression <- function(data) {
   # Prepare the model matrix (predictors) and response vector
@@ -144,7 +208,11 @@ fit_ridge_regression <- function(data) {
   # Return the coefficients at the best lambda
   return(coef(ridge_model, s = best_lambda))
 }
+```
 
+### perform_cross_validation
+This function tests a model's ability to predict well by checking it on different parts of the data. It helps choose the best settings for the model to perform better in the real world.
+```{r}
 # Function to compute cross-validation for Lasso and Ridge
 perform_cross_validation <- function(data, alpha) {
   x <- model.matrix(wage ~ . - 1, data = data)
@@ -156,7 +224,11 @@ perform_cross_validation <- function(data, alpha) {
   cat("Best Lambda: ", best_lambda, "\n")
   return(best_lambda)
 }
+```
 
+### compare_model_metrics
+This function compares the performance of different models by calculating errors in their predictions, helping us see which model is the most accurate.
+```{r}
 # Function to compare model metrics
 compare_model_metrics <- function(actuals, predictions_list, model_names) {
   metrics <- data.frame(
@@ -166,7 +238,11 @@ compare_model_metrics <- function(actuals, predictions_list, model_names) {
   )
   print(metrics)
 }
+```
 
+### generate_summary_report
+This function generates a summary report of the model's performance and saves it to a file. It provides an easy way to review how well the models did in the analysis.
+```{r}
 # Function to generate summary report
 generate_summary_report <- function(metrics, filename = "model_summary_report.txt") {
   sink(filename)
@@ -176,7 +252,11 @@ generate_summary_report <- function(metrics, filename = "model_summary_report.tx
   sink()
   cat("Summary report saved to ", filename, "\n")
 }
+```
 
+### fit_and_plot_regression_tree
+This function creates a regression tree, which is a type of model that predicts wages by splitting the data based on different features. It visualizes the decision-making process of the tree, showing how wages vary across different groups of data.
+```{r}
 # Function to create and visualize a Regression Tree
 fit_and_plot_regression_tree <- function(data, formula) {
   # Fit the regression tree model
@@ -190,129 +270,5 @@ fit_and_plot_regression_tree <- function(data, formula) {
   
   return(tree_model)
 }
+```
 
-# Main Script
-load_libraries()
-
-file_path <- "./Wage.csv"
-wage_data <- load_and_prepare_data(file_path)
-
-str(wage_data)
-summary(wage_data)
-# Check for missing values
-sum(is.na(wage_data))
-# Remove rows with missing values
-wage_data <- na.omit(wage_data)
-
-# Visualizations
-add_data_visualizations(wage_data)
-plot_data_visualizations(wage_data)
-
-# Fit Models
-fit_multilinear_regression(wage_data)
-rf_model <- fit_random_forest(wage_data, wage ~ age + education + year)
-xgb_model <- fit_xgboost(wage_data, wage ~ age + education + year)
-
-xgb.plot.tree(model = xgb_model, trees = 0, show_node_id = TRUE)
-dev.off()
-
-par(mar = c(5, 5, 4, 2))
-importance_matrix <- xgb.importance(model = xgb_model)
-xgb.plot.importance(importance_matrix, main = "Feature Importance")
-print(importance_matrix)
-
-# Regularization Cross-Validation
-best_lambda_lasso <- perform_cross_validation(wage_data, alpha = 1)
-best_lambda_ridge <- perform_cross_validation(wage_data, alpha = 0)
-
-## Tuning of RF
-# Corrected Random Forest Hyperparameter Tuning using caret
-tune_random_forest <- function(data, formula) {
-  # Define the training control for cross-validation
-  train_control <- trainControl(method = "cv", number = 5)  # 5-fold cross-validation
-  
-  # Define the hyperparameters to tune (mtry) - number of variables to try at each split
-  tune_grid <- expand.grid(mtry = c(2, 3, 4))  # Tuning 'mtry' parameter
-  
-  # Train the random forest model with tuning
-  rf_tune_model <- train(formula, data = data, method = "rf",
-                         trControl = train_control, tuneGrid = tune_grid,
-                         importance = TRUE)
-  
-  print(rf_tune_model)  # Print model performance results
-  varImpPlot(rf_tune_model$finalModel, main = "Variable Importance (Tuned Random Forest)")
-  
-  return(rf_tune_model$finalModel)
-}
-
-# Example usage:
-rf_tuned_model <- tune_random_forest(wage_data, wage ~ age + education + year)
-
-## XGB tuning
-# Function to tune hyperparameters for XGBoost
-tune_xgboost <- function(data, formula) {
-  # Define the training control for cross-validation
-  train_control <- trainControl(method = "cv", number = 5)  # 5-fold cross-validation
-  
-  # Define the hyperparameter grid to tune for XGBoost
-  tune_grid <- expand.grid(
-    nrounds = c(50, 100, 200),               # Number of boosting rounds
-    max_depth = c(3, 6, 9),                   # Maximum tree depth
-    eta = c(0.01, 0.1, 0.2),                 # Learning rate
-    gamma = c(0, 1),                          # Minimum loss reduction
-    colsample_bytree = c(0.5, 0.7, 1),       # Fraction of features to sample per tree
-    min_child_weight = c(1, 5, 10),           # Minimum sum of instance weight in a child
-    subsample = c(0.5, 0.7, 1)                # Subsampling ratio for training
-  )
-  
-  # Train the XGBoost model with tuning
-  xgb_tune_model <- train(formula, data = data, method = "xgbTree",
-                          trControl = train_control, tuneGrid = tune_grid,
-                          verbose = 0)  # Silent mode during training
-  
-  print(xgb_tune_model)  # Print model performance results
-  return(xgb_tune_model$finalModel)  # Return the best-tuned model
-}
-
-xgb_tuned_model <- tune_xgboost(wage_data, wage ~ age + education + year)
-
-# Model Comparison
-actuals <- wage_data$wage
-
-rf_predictions <- predict(rf_model, wage_data)
-x_data <- model.matrix(wage ~ age + education + year, data = wage_data)[, -1]
-xgb_predictions <- predict(xgb_model, newdata = as.matrix(x_data))
-lm_predictions <- predict(fit_multilinear_regression(wage_data), newdata = wage_data)
-
-# Create the model matrix for wage_data (excluding the intercept column)
-x_data <- model.matrix(wage ~ age + education + year, data = wage_data)[, -1]
-# Ensure that the new data for prediction matches the training data structure
-rf_tuned_predictions <- predict(rf_tuned_model, newdata = x_data)
-xgb_tuned_predictions <- predict(xgb_tuned_model, newdata = as.matrix(x_data))
-
-
-predictions_list <- list(rf_predictions, xgb_predictions, lm_predictions, rf_tuned_predictions, xgb_tuned_predictions)
-model_names <- c("Random Forest", "XGBoost", "Linear Regression", "Tuned Random Forest", "Tuned XGBoost")
-metrics <- compare_model_metrics(actuals, predictions_list, model_names)
-
-# Generate Summary Report
-generate_summary_report(metrics)
-
-# Data provided
-metrics <- data.frame(
-  Model = c("Random Forest", "XGBoost", "Linear Regression", "Tuned Random Forest", "Tuned XGBoost"),
-  RMSE = c(33.53792, 34.08860, 12.57193, 34.57570, 34.47375),
-  MAE = c(22.789318, 23.312429, 7.030531, 23.623297, 23.511137)
-)
-
-# Reshape the data to long format for plotting
-metrics_long <- metrics %>%
-  pivot_longer(cols = c(RMSE, MAE), names_to = "Metric", values_to = "Value")
-
-# Create the line graph
-ggplot(metrics_long, aes(x = Model, y = Value, color = Metric, group = Metric)) +
-  geom_line(size = 1) +  # Line for each metric
-  geom_point(size = 3) + # Points for each model
-  labs(title = "Model Performance Comparison", y = "Metric Value", x = "Model") +
-  scale_color_manual(values = c("RMSE" = "blue", "MAE" = "red")) +
-  theme_minimal()

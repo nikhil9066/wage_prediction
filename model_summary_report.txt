@@ -1,2 +1,8 @@
 Summary Report of Model Performance
 -----------------------------------
+                Model     RMSE       MAE
+1       Random Forest 33.53862 22.790604
+2             XGBoost 34.08860 23.312429
+3   Linear Regression 12.57193  7.030531
+4 Tuned Random Forest 34.56913 23.618314
+5       Tuned XGBoost 34.44777 23.482946
